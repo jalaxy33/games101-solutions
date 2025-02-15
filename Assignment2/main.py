@@ -2,7 +2,129 @@ import numpy as np
 import taichi as ti
 import taichi.math as tm
 
+
 ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
+
+
+@ti.func
+def inside_triangle(
+    x: float, y: float, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float
+):
+    # TODO: Implement this function to check if the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
+    alpha, beta, gamma = compute_barycentric(x, y, x1, y1, x2, y2, x3, y3)
+    return alpha >= 0 and beta >= 0 and gamma >= 0  # 在内部或边界上
+
+
+@ti.func
+def rasterize_triangle(
+    v1: ti.template(),
+    v2: ti.template(),
+    v3: ti.template(),
+    c1: ti.template(),
+    c2: ti.template(),
+    c3: ti.template(),
+):
+    # TODO: Find out the bounding box of current triangle.
+    # iterate through the pixel and find if the current pixel is inside the triangle
+
+    # If so, use the following code to get the interpolated z value.
+    # auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+    # float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+    # float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+    # z_interpolated *= w_reciprocal;
+
+    # TODO: set the current pixel (use the set_pixel function) to the color of the triangle (use getColor function) if it should be painted.
+
+    # 创建 bounding box
+    x_min = int(tm.floor(tm.min(v1.x, v2.x, v3.x)))
+    x_max = int(tm.ceil(tm.max(v1.x, v2.x, v3.x)))
+    y_min = int(tm.floor(tm.min(v1.y, v2.y, v3.y)))
+    y_max = int(tm.ceil(tm.max(v1.y, v2.y, v3.y)))
+
+    x1, y1, z1, w1 = v1
+    x2, y2, z2, w2 = v2
+    x3, y3, z3, w3 = v3
+    f_alpha = barycentric_ij(x1, y1, x2, y2, x3, y3)
+    f_beta = barycentric_ij(x2, y2, x3, y3, x1, y1)
+    f_gamma = barycentric_ij(x3, y3, x1, y1, x2, y2)
+
+    # 对于三角形共边的情况
+    # 设置一个屏幕外的点，如果该点在某个三角形内，就将边的颜色设为该三角形的颜色
+    alpha_check = f_alpha * barycentric_ij(-1, -1, x2, y2, x3, y3) > 0
+    beta_check = f_beta * barycentric_ij(-1, -1, x3, y3, x1, y1) > 0
+    gamma_check = f_gamma * barycentric_ij(-1, -1, x1, y1, x2, y2) > 0
+
+    if MSAA:
+        step_size = 1 / MSAA_N
+        start_offset = -0.5 + 1 / (2 * MSAA_N)
+
+        for x, y in ti.ndrange((x_min, x_max + 1), (y_min, y_max + 1)):
+            x_start = x + start_offset
+            y_start = y + start_offset
+
+            color = tm.vec3(0)  # pixel color
+            depth = -tm.inf  # store depth
+            for i, j in ti.ndrange(MSAA_N, MSAA_N):
+                x_curr = x_start + i * step_size
+                y_curr = y_start + j * step_size
+
+                f23 = barycentric_ij(x_curr, y_curr, x2, y2, x3, y3)
+                f31 = barycentric_ij(x_curr, y_curr, x3, y3, x1, y1)
+                f12 = barycentric_ij(x_curr, y_curr, x1, y1, x2, y2)
+
+                alpha = f23 / f_alpha
+                beta = f31 / f_beta
+                gamma = f12 / f_gamma
+
+                # 在内部或边界上
+                if (
+                    (alpha > 0 or (alpha == 0 and alpha_check))
+                    and (beta > 0 or (beta == 0 and beta_check))
+                    and (gamma > 0 or (gamma == 0 and gamma_check))
+                ):
+                    c = alpha * c1 + beta * c2 + gamma * c3
+                    color += c
+
+                    # 计算插值深度
+                    w = alpha * w1 + beta * w2 + gamma * w3
+                    z = alpha * z1 / w1 + beta * z2 / w2 + gamma * z3 / w3
+                    z /= w
+
+                    if depth < z:
+                        depth = z
+
+            color /= MSAA_N * MSAA_N
+            if depth_buf[x, y] < depth:
+                depth_buf[x, y] = depth
+                set_pixel(x, y, color)
+
+    else:
+        for x, y in ti.ndrange((x_min, x_max + 1), (y_min, y_max + 1)):
+            f23 = barycentric_ij(x, y, x2, y2, x3, y3)
+            f31 = barycentric_ij(x, y, x3, y3, x1, y1)
+            f12 = barycentric_ij(x, y, x1, y1, x2, y2)
+
+            alpha = f23 / f_alpha
+            beta = f31 / f_beta
+            gamma = f12 / f_gamma
+
+            # 在内部或边界上
+            if (
+                (alpha > 0 or (alpha == 0 and alpha_check))
+                and (beta > 0 or (beta == 0 and beta_check))
+                and (gamma > 0 or (gamma == 0 and gamma_check))
+            ):
+                c = alpha * c1 + beta * c2 + gamma * c3
+
+                # 计算插值深度
+                w = alpha * w1 + beta * w2 + gamma * w3
+                z = alpha * z1 / w1 + beta * z2 / w2 + gamma * z3 / w3
+                z /= w
+
+                # z-test
+                if depth_buf[x, y] < z:
+                    depth_buf[x, y] = z
+                    set_pixel(x, y, c)
 
 
 # ////////// Transform /////////////
@@ -120,6 +242,8 @@ def get_projection_matrix(
 
 @ti.kernel
 def render():
+    depth_buf.fill(-tm.inf)
+
     for i in indices:
         i1, i2, i3 = indices[i]
         v1, v2, v3 = (
@@ -141,13 +265,6 @@ def render():
         # set_pixel(v2.x, v2.y, c2)
         # set_pixel(v3.x, v3.y, c3)
 
-
-        # # rasterize_triangle
-
-        # x_min = tm.min(v1.x, v2.x, v3.x)
-        # x_max = tm.max(v1.x, v2.x, v3.x)
-        # y_min = tm.min(v1.y, v2.y, v3.y)
-        # y_max = tm.max(v1.y, v2.y, v3.y)
         rasterize_triangle(v1, v2, v3, c1, c2, c3)
 
 
@@ -174,100 +291,6 @@ def compute_barycentric(
         x3, y3, x1, y1, x2, y2
     )
     return tm.vec3(alpha, beta, gamma)
-
-
-@ti.func
-def inside_triangle(
-    x: float, y: float, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float
-):
-    # TODO: Implement this function to check if the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
-    alpha, beta, gamma = compute_barycentric(x, y, x1, y1, x2, y2, x3, y3)
-    return alpha >= 0 and beta >= 0 and gamma >= 0  # 在内部或边界上
-
-
-# TODO: MSAA
-@ti.func
-def rasterize_triangle(
-    v1: ti.template(),
-    v2: ti.template(),
-    v3: ti.template(),
-    c1: ti.template(),
-    c2: ti.template(),
-    c3: ti.template(),
-):
-    # TODO: Find out the bounding box of current triangle.
-    # iterate through the pixel and find if the current pixel is inside the triangle
-
-    # If so, use the following code to get the interpolated z value.
-    # auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
-    # float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-    # float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-    # z_interpolated *= w_reciprocal;
-
-    # TODO: set the current pixel (use the set_pixel function) to the color of the triangle (use getColor function) if it should be painted.
-
-    # 创建 bounding box
-    x_min = int(tm.floor(tm.min(v1.x, v2.x, v3.x)))
-    x_max = int(tm.ceil(tm.max(v1.x, v2.x, v3.x)))
-    y_min = int(tm.floor(tm.min(v1.y, v2.y, v3.y)))
-    y_max = int(tm.ceil(tm.max(v1.y, v2.y, v3.y)))
-
-    # print(x_min, x_max, y_min, y_max)
-
-    x1, y1, z1, w1 = v1
-    x2, y2, z2, w2 = v2
-    x3, y3, z3, w3 = v3
-    f_alpha = barycentric_ij(x1, y1, x2, y2, x3, y3)
-    f_beta = barycentric_ij(x2, y2, x3, y3, x1, y1)
-    f_gamma = barycentric_ij(x3, y3, x1, y1, x2, y2)
-
-    # 对于三角形共边的情况，设置一个屏幕外的点，如果该点在三角形内就绘制该边
-    alpha_check = f_alpha * barycentric_ij(-1, -1, x2, y2, x3, y3) > 0
-    beta_check = f_beta * barycentric_ij(-1, -1, x3, y3, x1, y1) > 0
-    gamma_check = f_gamma * barycentric_ij(-1, -1, x1, y1, x2, y2) > 0
-
-    d = 1 / (2 * MSAA_N)
-
-    for x_, y_ in ti.ndrange((x_min, x_max + 1), (y_min, y_max + 1)):
-        # MSAA
-        count = 0
-        max_depth = -tm.inf
-        c = tm.vec3(0)
-        x, y = x_, y_
-        for i, j in ti.ndrange(MSAA_N, MSAA_N):
-            x = int(x_ + 2 * d * i + d)
-            y = int(y_ + 2 * d * j + d)
-
-            f23 = barycentric_ij(x, y, x2, y2, x3, y3)
-            f31 = barycentric_ij(x, y, x3, y3, x1, y1)
-            f12 = barycentric_ij(x, y, x1, y1, x2, y2)
-
-            alpha = f23 / f_alpha
-            beta = f31 / f_beta
-            gamma = f12 / f_gamma
-
-            # if inside_triangle(x, y, x1, y1, x2, y2, x3, y3):
-            if alpha >= 0 and beta >= 0 and gamma >= 0:  # 在内部或边界上
-                if (
-                    (alpha > 0 or alpha_check)
-                    and (beta > 0 or beta_check)
-                    and (gamma > 0 or gamma_check)
-                ):
-                    c = alpha * c1 + beta * c2 + gamma * c3
-                    
-                    # 计算插值深度
-                    w = alpha * w1 + beta * w2 + gamma * w3
-                    z = alpha * z1 / w1 + beta * z2 / w2 + gamma * z3 / w3
-                    z /= w
-
-                    max_depth = tm.max(max_depth, z)
-                    count += 1
-
-        if (count != 0) and (not ti.is_active(block2, [x, y]) or depth_buf[x, y] < max_depth):
-            # z-test
-            # if not ti.is_active(block2, [x, y]) or depth_buf[x, y] < z:
-            depth_buf[x, y] = max_depth
-            set_pixel(x, y, c)
 
 
 # <<- Region End
@@ -314,12 +337,13 @@ if __name__ == "__main__":
     zFar = 50
 
     # define display
-    width = 1024
-    height = 1024
+    width = 2048
+    height = 2048
     resolution = (width, height)
     aspect_ratio = 1.0 * height / width
 
-    MSAA_N = 1
+    MSAA = False
+    MSAA_N = 4  # MSAA-NxN
 
     # taichi data
     vertices = ti.Vector.field(3, float, shape=len(pos))
@@ -330,17 +354,8 @@ if __name__ == "__main__":
     indices.from_numpy(ind)
     per_vertex_colors.from_numpy(cols)
 
-    frame_buf = ti.Vector.field(3, float)  # 屏幕像素颜色信息（rbg）
-    depth_buf = ti.field(float)  # 屏幕像素深度信息（z-buffer）
-
-    S = ti.root.pointer(ti.ij, (4, 4))
-    # block = S.dense(ti.ij, (width // 4, height // 4))  # 稠密型存储
-    block1 = S.bitmasked(ti.ij, (width // 4, height // 4))  # 稀疏化存储
-    block2 = S.bitmasked(ti.ij, (width // 4, height // 4))  # 稀疏化存储
-    block1.place(frame_buf)
-    block2.place(depth_buf)
-
-    # print(ti.is_active(block, 0))
+    frame_buf = ti.Vector.field(3, float, shape=resolution)  # 屏幕像素颜色信息（rbg）
+    depth_buf = ti.field(float, shape=resolution)  # 屏幕像素深度信息（z-buffer）
 
     # transform matrix
     viewport = get_viewport_matrix(width, height)
@@ -349,25 +364,22 @@ if __name__ == "__main__":
     model = get_model_matrix()
     mvp = viewport @ projection @ view @ model
 
-    print("viewport:", viewport)
-    print("projection:", projection)
-    print("view:", view)
-    print("model:", model)
-    print("mvp:", mvp)
+    # print("viewport:", viewport)
+    # print("projection:", projection)
+    # print("view:", view)
+    # print("model:", model)
+    # print("mvp:", mvp)
 
     # rendering
     window = ti.ui.Window("draw two triangles", resolution)
     canvas = window.get_canvas()
 
-    # render()
+    render()
 
     while window.running:
         if window.is_pressed(ti.ui.ESCAPE):  # 按ESC退出
             break
 
-        # S.deactivate_all()
-        # depth_buf.fill(-tm.inf)
-
-        render()
+        # render()
         canvas.set_image(frame_buf)
         window.show()

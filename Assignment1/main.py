@@ -4,7 +4,7 @@ import numpy as np
 import taichi as ti
 import taichi.math as tm
 
-ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32)
+ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
 
 
 def normalize(x, eps=1e-9):
@@ -156,7 +156,7 @@ def get_projection_matrix(
 
 @ti.kernel
 def render(angle: float):
-    # frame_buf.fill(background_color)  # set background color
+    frame_buf.fill(background_color)  # set background color
 
     model = get_model_matrix(angle, rotate_axis="z")
     mvp = viewport @ projection @ view @ model
@@ -251,7 +251,7 @@ if __name__ == "__main__":
 
     # colors
     line_color = tm.vec3(1, 1, 1)
-    # background_color = tm.vec3(0, 0, 0)
+    background_color = tm.vec3(0, 0, 0)
 
     # define display
     width = 1024
@@ -266,12 +266,7 @@ if __name__ == "__main__":
     vertices.from_numpy(pos)
     indices.from_numpy(ind)
 
-    frame_buf = ti.Vector.field(3, float)  # 屏幕像素颜色信息（rbg）
-
-    S = ti.root.pointer(ti.ij, (4, 4))
-    # block = S.dense(ti.ij, (width // 4, height // 4))  # 稠密型存储
-    block = S.bitmasked(ti.ij, (width // 4, height // 4))  # 稀疏化存储
-    block.place(frame_buf)
+    frame_buf = ti.Vector.field(3, float, shape=resolution)  # 屏幕像素颜色信息（rbg）
 
     # transform matrix
     viewport = get_viewport_matrix(width, height)
@@ -304,7 +299,6 @@ if __name__ == "__main__":
         if window.is_pressed("d"):  # 按 D 键绕z轴顺时针旋转
             angle = (angle - rotate_delta) % 360
 
-        S.deactivate_all()
         render(angle)
         canvas.set_image(frame_buf)
         window.show()
