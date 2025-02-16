@@ -286,7 +286,7 @@ if __name__ == "__main__":
     window = ti.ui.Window("draw triangle wireframe", resolution)
     canvas = window.get_canvas()
 
-    # render(angle)
+    render(angle)
 
     rotate_delta = 1  # 定义旋转速度
     while window.running:
@@ -295,10 +295,11 @@ if __name__ == "__main__":
 
         if window.is_pressed("a"):  # 按 A 键绕z轴逆时针旋转
             angle = (angle + rotate_delta) % 360
+            render(angle)
 
         if window.is_pressed("d"):  # 按 D 键绕z轴顺时针旋转
             angle = (angle - rotate_delta) % 360
-
-        render(angle)
+            render(angle)
+            
         canvas.set_image(frame_buf)
         window.show()

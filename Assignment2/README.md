@@ -2,7 +2,7 @@
 
 掌握三角形的绘制以及处理多个物体的前后遮挡问题，实现 MSAA 反走样。
 
-**关键词**: Graphics Pipeline, Triangle Rasterization, Anti-aliasing
+**关键词**: Graphics Pipeline, Triangle Rasterization, Barycentric Coordinates, Anti-aliasing
 
 **参考资料**：
 - 《虎书》第 9 章（The Graphics Pipeline），第 10 章（Signal Processing）

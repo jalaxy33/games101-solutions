@@ -70,11 +70,12 @@ def rasterize_triangle(
 
                 f23 = barycentric_ij(x_curr, y_curr, x2, y2, x3, y3)
                 f31 = barycentric_ij(x_curr, y_curr, x3, y3, x1, y1)
-                f12 = barycentric_ij(x_curr, y_curr, x1, y1, x2, y2)
+                # f12 = barycentric_ij(x_curr, y_curr, x1, y1, x2, y2)
 
                 alpha = f23 / f_alpha
                 beta = f31 / f_beta
-                gamma = f12 / f_gamma
+                # gamma = f12 / f_gamma
+                gamma = 1 - alpha - beta
 
                 # 在内部或边界上
                 if (
@@ -93,7 +94,7 @@ def rasterize_triangle(
                     if depth < z:
                         depth = z
 
-            color /= MSAA_N * MSAA_N
+            color /= MSAA_N * MSAA_N  # 周围超像素的颜色取平均
             if depth_buf[x, y] < depth:
                 depth_buf[x, y] = depth
                 set_pixel(x, y, color)
@@ -102,11 +103,12 @@ def rasterize_triangle(
         for x, y in ti.ndrange((x_min, x_max + 1), (y_min, y_max + 1)):
             f23 = barycentric_ij(x, y, x2, y2, x3, y3)
             f31 = barycentric_ij(x, y, x3, y3, x1, y1)
-            f12 = barycentric_ij(x, y, x1, y1, x2, y2)
+            # f12 = barycentric_ij(x, y, x1, y1, x2, y2)
 
             alpha = f23 / f_alpha
             beta = f31 / f_beta
-            gamma = f12 / f_gamma
+            # gamma = f12 / f_gamma
+            gamma = 1 - alpha - beta
 
             # 在内部或边界上
             if (
@@ -287,9 +289,10 @@ def compute_barycentric(
         x1, y1, x2, y2, x3, y3
     )
     beta = barycentric_ij(x, y, x3, y3, x1, y1) / barycentric_ij(x2, y2, x3, y3, x1, y1)
-    gamma = barycentric_ij(x, y, x1, y1, x2, y2) / barycentric_ij(
-        x3, y3, x1, y1, x2, y2
-    )
+    # gamma = barycentric_ij(x, y, x1, y1, x2, y2) / barycentric_ij(
+    #     x3, y3, x1, y1, x2, y2
+    # )
+    gamma = 1 - alpha - beta
     return tm.vec3(alpha, beta, gamma)
 
 
