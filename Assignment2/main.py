@@ -281,6 +281,7 @@ def barycentric_ij(x: float, y: float, xi: float, yi: float, xj: float, yj: floa
     return (yi - yj) * x + (xj - xi) * y + xi * yj - xj * yi
 
 
+# 计算三角形重心坐标
 @ti.func
 def compute_barycentric(
     x: float, y: float, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float

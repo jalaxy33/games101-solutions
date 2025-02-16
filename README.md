@@ -4,7 +4,7 @@
 编程语言使用 [python](https://www.python.org/)，基于 [Taichi](https://taichi-lang.cn/) 库实现。
 
 
-作业完成情况 (1 / 9):
+作业完成情况 (3 / 9):
 - [x] [作业0. 熟悉线性代数](./Assignment0/README.md)
 - [x] [作业1. 实现变换矩阵+画三角形线框](./Assignment1/README.md)
 - [x] [作业2. 绘制两个三角形+反走样](./Assignment2/README.md)
