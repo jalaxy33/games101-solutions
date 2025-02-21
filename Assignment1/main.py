@@ -4,7 +4,12 @@ import numpy as np
 import taichi as ti
 import taichi.math as tm
 
-ti.init(arch=ti.cpu, default_fp=ti.f32, default_ip=ti.i32)
+ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32)
+
+# define types
+vec3 = ti.types.vector(3, float)
+vec4 = ti.types.vector(4, float)
+mat4 = ti.types.matrix(4, 4, float)
 
 
 def normalize(x, eps=1e-9):
@@ -15,8 +20,8 @@ def normalize(x, eps=1e-9):
 
 
 # 视口变换
-def get_viewport_matrix(width: float, height: float):
-    viewport = tm.mat4(
+def get_viewport_matrix(width: float, height: float) -> mat4:
+    viewport = mat4(
         [
             [width / 2, 0, 0, (width - 1) / 2],
             [0, height / 2, 0, (height - 1) / 2],
@@ -28,12 +33,12 @@ def get_viewport_matrix(width: float, height: float):
 
 
 # 相机变换（camera/view）
-def get_view_matrix(eye_pos, look_at, eye_up):
+def get_view_matrix(eye_pos, look_at, eye_up) -> mat4:
     w = -normalize(look_at)
     u = normalize(np.cross(eye_up, w))
     v = np.cross(w, u)
-    view = tm.mat4(tm.vec4(u, 0), tm.vec4(v, 0), tm.vec4(w, 0), tm.vec4(0, 0, 0, 1))
-    translate = tm.mat4(
+    view = mat4(vec4(u, 0), vec4(v, 0), vec4(w, 0), vec4(0, 0, 0, 1))
+    translate = mat4(
         [
             [1, 0, 0, -eye_pos[0]],
             [0, 1, 0, -eye_pos[1]],
@@ -46,19 +51,19 @@ def get_view_matrix(eye_pos, look_at, eye_up):
 
 
 # 模型变换
-def get_model_matrix(rotation_angle: float, rotate_axis: str = "z"):
+def get_model_matrix(rotation_angle: float, rotate_axis: str = "z") -> mat4:
     #  TODO: Implement this function
     #  Create the model matrix for rotating the triangle around the Z axis.
     #  Then return it.
 
-    model = tm.mat4(np.eye(4))
+    model = mat4(np.eye(4))
 
     theta = rotation_angle / 180 * tm.pi
     sin_theta = tm.sin(theta)
     cos_theta = tm.cos(theta)
 
     if rotate_axis == "z":
-        model = tm.mat4(
+        model = mat4(
             [
                 [cos_theta, -sin_theta, 0, 0],
                 [sin_theta, cos_theta, 0, 0],
@@ -67,7 +72,7 @@ def get_model_matrix(rotation_angle: float, rotate_axis: str = "z"):
             ]
         )
     elif rotate_axis == "y":
-        model = tm.mat4(
+        model = mat4(
             [
                 [cos_theta, 0, -sin_theta, 0],
                 [0, 1, 0, 0],
@@ -76,7 +81,7 @@ def get_model_matrix(rotation_angle: float, rotate_axis: str = "z"):
             ]
         )
     elif rotate_axis == "x":
-        model = tm.mat4(
+        model = mat4(
             [
                 [1, 0, 0, 0],
                 [0, cos_theta, -sin_theta, 0],
@@ -93,7 +98,7 @@ def get_model_matrix(rotation_angle: float, rotate_axis: str = "z"):
 # 正交变换
 def get_orthographic_matrix(
     eye_fov: float, aspect_ratio: float, zNear: float, zFar: float
-):
+) -> mat4:
     # display area
     # near-far
     n = -zNear
@@ -106,7 +111,7 @@ def get_orthographic_matrix(
     r = t * aspect_ratio
     l = -r
 
-    scale = tm.mat4(
+    scale = mat4(
         [
             [2 / (r - l), 0, 0, 0],
             [0, 2 / (t - b), 0, 0],
@@ -114,7 +119,7 @@ def get_orthographic_matrix(
             [0, 0, 0, 1],
         ]
     )
-    translate = tm.mat4(
+    translate = mat4(
         [
             [1, 0, 0, -(r + l) / 2],
             [0, 1, 0, -(t + b) / 2],
@@ -129,7 +134,7 @@ def get_orthographic_matrix(
 # 投影变换
 def get_projection_matrix(
     eye_fov: float, aspect_ratio: float, zNear: float, zFar: float
-):
+) -> mat4:
     # TODO: Implement this function
     # Create the projection matrix for the given parameters.
     # Then return it.
@@ -138,7 +143,7 @@ def get_projection_matrix(
 
     # perspect-to-orthographic
     n, f = -zNear, -zFar
-    p2o = tm.mat4(
+    p2o = mat4(
         [
             [n, 0, 0, 0],
             [0, n, 0, 0],
@@ -151,15 +156,18 @@ def get_projection_matrix(
     return projection
 
 
+def apply_rotation(rotation_angle: float):
+    global model, mvp
+    model = get_model_matrix(rotation_angle, rotate_axis="z")
+    mvp = viewport @ projection @ view @ model
+
+
 # ==============================================
 
 
 @ti.kernel
-def render(angle: float):
+def render(mvp: mat4):
     frame_buf.fill(background_color)  # set background color
-
-    model = get_model_matrix(angle, rotate_axis="z")
-    mvp = viewport @ projection @ view @ model
 
     # print("viewport:", viewport)
     # print("projection:", projection)
@@ -170,9 +178,9 @@ def render(angle: float):
     for i in indices:
         i1, i2, i3 = indices[i]
         v1, v2, v3 = (
-            tm.vec4(vertices[i1], 1),
-            tm.vec4(vertices[i2], 1),
-            tm.vec4(vertices[i3], 1),
+            vec4(vertices[i1], 1),
+            vec4(vertices[i2], 1),
+            vec4(vertices[i3], 1),
         )
 
         v1 = mvp @ v1
@@ -188,12 +196,6 @@ def render(angle: float):
         # set_pixel(v3.x, v3.y, line_color)
 
         rasterize_wireframe(v1, v2, v3)
-
-
-@ti.kernel
-def update_model_transform(rotation_angle: float):
-    model = get_model_matrix(rotation_angle, rotate_axis="z")
-    return model
 
 
 @ti.func
@@ -250,8 +252,8 @@ if __name__ == "__main__":
     zFar = 50
 
     # colors
-    line_color = tm.vec3(1, 1, 1)
-    background_color = tm.vec3(0, 0, 0)
+    line_color = vec3(1, 1, 1)
+    background_color = vec3(0, 0, 0)
 
     # define display
     width = 1024
@@ -276,17 +278,17 @@ if __name__ == "__main__":
 
     mvp = viewport @ projection @ view @ model
 
-    print("viewport:", viewport)
-    print("projection:", projection)
-    print("view:", view)
-    print("model:", model)
-    print("mvp:", mvp)
+    # print("viewport:", viewport)
+    # print("projection:", projection)
+    # print("view:", view)
+    # print("model:", model)
+    # print("mvp:", mvp)
 
     # rendering
     window = ti.ui.Window("draw triangle wireframe", resolution)
     canvas = window.get_canvas()
 
-    render(angle)
+    render(mvp)
 
     rotate_delta = 1  # 定义旋转速度
     while window.running:
@@ -295,11 +297,13 @@ if __name__ == "__main__":
 
         if window.is_pressed("a"):  # 按 A 键绕z轴逆时针旋转
             angle = (angle + rotate_delta) % 360
-            render(angle)
+            apply_rotation(angle)
+            render(mvp)
 
         if window.is_pressed("d"):  # 按 D 键绕z轴顺时针旋转
             angle = (angle - rotate_delta) % 360
-            render(angle)
-            
+            apply_rotation(angle)
+            render(mvp)
+
         canvas.set_image(frame_buf)
         window.show()

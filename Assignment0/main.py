@@ -33,6 +33,6 @@ print("i =", i)
 print("j =", j)
 print("i + j =", i + j)
 print("i * 2.0 =", i * 2)
-print("i * j =", i @ j)
-print("i * v =", i @ v)
+print("i @ j =", i @ j)
+print("i @ v =", i @ v)
 
