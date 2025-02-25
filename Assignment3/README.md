@@ -1,4 +1,4 @@
-# Assignment 3
+# 作业3. 实现常见着色器
 
 
 实现模型网格的加载和渲染，实现 Normal Mapping、Bling-Phong 光照模型、Texture Mapping、Displacement Mapping 和 Bump Mapping 等常见着色器。
