@@ -228,7 +228,7 @@ class Rasterizer:
                 y_curr = y + 2 * D * j + D
 
                 if inside_triangle(x_curr, y_curr, v1.xyz, v2.xyz, v3.xyz):
-                    alpha, beta, gamma = compute_barycentric(x, y, v1.xyz, v2.xyz, v3.xyz)
+                    alpha, beta, gamma = compute_barycentric(x_curr, y_curr, v1.xyz, v2.xyz, v3.xyz)
                     w_reciprocal = 1.0 / (alpha / w1 + beta / w2 + gamma / w3)
                     z_interpolated = alpha * z1 / w1 + beta * z2 / w2 + gamma * z3 / w3
                     z_interpolated *= w_reciprocal
@@ -239,9 +239,10 @@ class Rasterizer:
                     if depth < z_interpolated:
                         depth = z_interpolated
 
-            color /= self.MSAA_N * self.MSAA_N
             if self.depth_buf[x, y] < depth:
                 self.depth_buf[x, y] = depth
+                
+                color /= self.MSAA_N * self.MSAA_N
                 self.set_pixel(x, y, color)
 
     @ti.kernel
