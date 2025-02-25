@@ -1,3 +1,5 @@
+# Assignment 3. Implement shaders
+
 import os
 
 os.chdir(os.path.dirname(__file__))
