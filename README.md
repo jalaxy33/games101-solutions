@@ -9,6 +9,7 @@
 - [x] [作业1. 实现变换矩阵+画三角形线框](./Assignment1/README.md)
 - [x] [作业2. 绘制两个三角形+反走样](./Assignment2/README.md)
 - [x] [作业3. 实现常见着色器](./Assignment3/README.md)
+- [x] [作业 4. 贝塞尔曲线](./Assignment4/README.md)
 
 
 ## 图形学基础
