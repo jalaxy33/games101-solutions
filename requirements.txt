@@ -1,3 +1,2 @@
 taichi
 trimesh
-scikit-image
