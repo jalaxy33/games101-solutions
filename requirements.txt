@@ -1,2 +1,3 @@
 taichi
 trimesh
+vispy
