@@ -10,7 +10,7 @@
 - [x] [作业2. 绘制两个三角形+反走样](./Assignment2/README.md)
 - [x] [作业3. 实现常见着色器](./Assignment3/README.md)
 - [x] [作业4. 贝塞尔曲线](./Assignment4/README.md)
-- [x] [作业5. Whitted-style RayTracing](./Assignment5/README.md)
+- [x] [作业5. Whitted-style 光线追踪](./Assignment5/README.md)
 
 
 ## 图形学基础
