@@ -1,4 +1,4 @@
-# 作业5.
+# 作业5. Whitted-style 光线追踪
 
 实现 Whitted-style RayTracing。重点是实现光线与球和三角形的求交，难点在于用栈替代递归。
 
