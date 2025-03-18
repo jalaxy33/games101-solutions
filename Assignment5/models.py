@@ -1,153 +1,205 @@
-import numpy as np
 import taichi as ti
 import taichi.math as tm
 
-
-# Material Types
+# Materials
 DIFFUSE_AND_GLOSSY = 0
 REFLECTION_AND_REFRACTION = 1
 REFLECTION = 2
 
 
 @ti.dataclass
+class Ray:
+    ro: tm.vec3  # origin
+    rd: tm.vec3  # direction
+
+    @ti.func
+    def at(self, t):
+        return self.ro + t * self.rd
+
+
+@ti.dataclass
 class Material:
-    m_type: int
+    m_type: int  # 材质类型
+    ior: float  # 折射系数 refract index
     kd: tm.vec3  # 漫反射系数
     ks: tm.vec3  # 镜面反射系数
-    spec_exp: float  # 高光指数
-    refrac_idx: float  # 折射系数
-    diffuse_color: tm.vec3  # 材质颜色
+    ka: tm.vec3  # 环境光系数
+    diffuse_color: tm.vec3
+    spec_exp: float  # 高光系数
+
+    def change(
+        self,
+        m_type=DIFFUSE_AND_GLOSSY,
+        diffuse_color=tm.vec3(0.2),
+        ior=1.3,
+        kd=tm.vec3(0.8),
+        ks=tm.vec3(0.2),
+        ka=tm.vec3(0.005),
+        spec_exp=25.0,
+    ):
+        self.m_type = m_type
+        self.diffuse_color = diffuse_color
+        self.ior = ior
+        self.kd = kd
+        self.ks = ks
+        self.ka = ka
+        self.spec_exp = spec_exp
+
+
+@ti.dataclass
+class HitRecord:
+    is_hit: bool
+    pos: tm.vec3
+    t: float
+    N: tm.vec3  # normal
+    front_face: bool
+    mat: Material
+
+    @ti.func
+    def set_face_normal(self, ray: Ray, outward_normal: tm.vec3):
+        self.front_face = tm.dot(ray.rd, outward_normal) < 0
+        self.N = outward_normal if self.front_face else -outward_normal
 
 
 @ti.data_oriented
-class Model:
+class Hittable:
     def __init__(self):
-        self.material = Material(
-            m_type=DIFFUSE_AND_GLOSSY,
-            kd=tm.vec3(0.8),
-            ks=tm.vec3(0.2),
-            spec_exp=25.0,
-            refrac_idx=1.3,
-            diffuse_color=(0.2, 0.2, 0.2),
-        )
+        self.set_material()
 
     def set_material(
         self,
         m_type=DIFFUSE_AND_GLOSSY,
+        diffuse_color=tm.vec3(0.2),
+        ior=1.3,
         kd=tm.vec3(0.8),
         ks=tm.vec3(0.2),
+        ka=tm.vec3(0.005),
         spec_exp=25.0,
-        refrac_idx=1.3,
-        diffuse_color=(0.2, 0.2, 0.2),
     ):
-        self.material = Material(m_type, kd, ks, spec_exp, refrac_idx, diffuse_color)
+        self.material = Material(m_type, ior, kd, ks, ka, diffuse_color, spec_exp)
 
-
-@ti.func
-def solve_quadratic(a, b, c):
-    has_root = False
-    x1, x2 = tm.inf, tm.inf
-
-    discr = b * b - 4 * a * c
-    sqrt_d = tm.sqrt(discr)
-    if discr >= 0:
-        has_root = True
-        x1 = (-b - sqrt_d) / (2 * a)
-        x2 = (-b + sqrt_d) / (2 * a)
-    if x1 > x2:
-        x1, x2 = x2, x1
-    return has_root, x1, x2
+    @ti.func
+    def hit(self, ray: Ray, tmin: float) -> HitRecord:
+        return HitRecord()
 
 
 @ti.data_oriented
-class Sphere(Model):
+class Sphere(Hittable):
     def __init__(self, center, radius):
-        self.center = center
-        self.radius = radius
+        super().__init__()
+        self.c = tm.vec3(center)
+        self.r = float(radius)
 
     @ti.func
-    def hit(self, ray_orig, ray_dir, t_min: float):
-        C, R = self.center, self.radius
-        O, D = ray_orig, ray_dir
+    def solve_quadratic(self, a, b, c):
+        has_root = False
+        x1, x2 = tm.inf, tm.inf
 
-        L = O - C
-        a = D.dot(D)
-        b = 2 * D.dot(L)
-        c = L.dot(L) - R * R
-        is_hit, t1, t2 = solve_quadratic(a, b, c)
+        discr = b * b - 4 * a * c
+        if discr >= 0:
+            has_root = True
+            sqrt_d = tm.sqrt(discr)
+            x1 = (-b - sqrt_d) / (2 * a)
+            x2 = (-b + sqrt_d) / (2 * a)
+        if x1 > x2:
+            x1, x2 = x2, x1
+        return has_root, x1, x2
+
+    @ti.func
+    def hit(self, ray: Ray, tmin: float) -> HitRecord:
+        rec = HitRecord()
+
+        oc = ray.ro - self.c
+        a = tm.dot(ray.rd, ray.rd)
+        b = 2 * tm.dot(ray.rd, oc)
+        c = tm.dot(oc, oc) - self.r * self.r
+
+        is_hit, t1, t2 = self.solve_quadratic(a, b, c)
         if t1 < 0:
             t1 = t2
         if t1 < 0:
             is_hit = False
-        t_closest = t1
 
-        N = (O - C).normalize()
-        diffuse_color = self.material.diffuse_color
-        return is_hit, t_closest, N, diffuse_color
+        if is_hit and t1 < tmin:
+            rec.is_hit = is_hit
+            rec.t = t1
+            rec.pos = ray.at(rec.t)
+            rec.mat = self.material
 
-
-@ti.func
-def lerp(v1, v2, ratio: float):
-    # frac: [0.0, 1.0]
-    assert ratio >= 0.0 and ratio <= 1.0
-    return v1 + ratio * (v2 - v1)
+            outward_normal = (rec.pos - self.c) / self.r
+            rec.set_face_normal(ray, outward_normal)
+        return rec
 
 
 @ti.data_oriented
-class MeshTriangle(Model):
+class MeshTriangle(Hittable):
     def __init__(self, vertices, indices, st_coords):
-        self.vertices = ti.Vector.field(3, dtype=ti.f32, shape=len(vertices))
-        self.indices = ti.Vector.field(3, dtype=ti.i32, shape=len(indices))
-        self.st_coords = ti.Vector.field(2, dtype=ti.f32, shape=len(st_coords))
+        self.vertices = ti.Vector.field(3, ti.f32, shape=len(vertices))
+        self.indices = ti.Vector.field(3, ti.i32, shape=len(indices))
+        self.st_coords = ti.Vector.field(2, ti.f32, shape=len(st_coords))
 
-        self.vertices.from_numpy(np.array(vertices, np.float32))
-        self.indices.from_numpy(np.array(indices, np.int32))
-        self.st_coords.from_numpy(np.array(st_coords, np.float32))
+        self.diffuse_scale = 5
+        self.diffuse_color1 = tm.vec3(0.815, 0.235, 0.031)
+        self.diffuse_color2 = tm.vec3(0.937, 0.937, 0.231)
 
-        self.color_scale = 5
-        self.color1 = tm.vec3(0.815, 0.235, 0.031)
-        self.color2 = tm.vec3(0.937, 0.937, 0.231)
+        for i in range(len(vertices)):
+            self.vertices[i] = vertices[i]
+        for i in range(len(indices)):
+            self.indices[i] = indices[i]
+        for i in range(len(st_coords)):
+            self.st_coords[i] = st_coords[i]
 
     @ti.func
-    def hit(self, ray_orig, ray_dir, t_min: float):
-        O, D = ray_orig, ray_dir
+    def lerp(self, a, b, t: float):
+        return (1 - t) * a + t * b
 
-        is_hit = False
-        t_closest = t_min
-        N = tm.vec3(0)
-        diffuse_color = self.material.diffuse_color
+    @ti.func
+    def eval_diffuse_color(self, st: tm.vec2):
+        pattern = (tm.mod(st.x * self.diffuse_scale, 1) > 0.5) ^ (
+            tm.mod(st.y * self.diffuse_scale, 1) > 0.5
+        )
+        return self.lerp(self.diffuse_color1, self.diffuse_color2, pattern)
 
-        # Moller Trumbore Algorithm
+    @ti.func
+    def hit(self, ray: Ray, tmin: float) -> HitRecord:
+        rec = HitRecord()
+
         for index in range(self.indices.shape[0]):
-            # TODO: Implement this function that tests whether the triangle
-            # that's specified bt v0, v1 and v2 intersects with the ray (whose
-            # origin is *orig* and direction is *dir*)
-            # Also don't forget to update tnear, u and v.
             i1, i2, i3 = self.indices[index]
             v1, v2, v3 = self.vertices[i1], self.vertices[i2], self.vertices[i3]
             st1, st2, st3 = self.st_coords[i1], self.st_coords[i2], self.st_coords[i3]
 
+            # TODO: Implement this function that tests whether the triangle
+            # that's specified bt v0, v1 and v2 intersects with the ray (whose
+            # origin is *orig* and direction is *dir*)
+            # Also don't forget to update tnear, u and v.
+
+            # Möller Trumbore Algorithm:
             e1 = v2 - v1
             e2 = v3 - v1
-            s = O - v1
+            s = ray.ro - v1
+            s1 = tm.cross(ray.rd, e2)
+            s2 = tm.cross(s, e1)
 
-            s1 = D.cross(e2)
-            s2 = s.cross(e1)
+            s1e1 = tm.dot(s1, e1)
+            t = tm.dot(s2, e2) / s1e1
+            b1 = tm.dot(s1, s) / s1e1  # u
+            b2 = tm.dot(s2, ray.rd) / s1e1  # v
+            b3 = 1 - b1 - b2
 
-            s1e1 = s1.dot(e1)
-            t = s2.dot(e2) / s1e1
-            b1 = s1.dot(s) / s1e1  # u
-            b2 = s2.dot(D) / s1e1  # v
+            eps = -1e-9
+            if t < tmin and t > eps and b1 > eps and b2 > eps and b3 > eps:
+                rec.is_hit = True
+                rec.t = t
+                rec.pos = ray.at(rec.t)
+                rec.mat = self.material
 
-            eps = 1e-9
-            if t < t_closest and b1 > eps and b2 > eps and (1 - b1 - b2) > eps:
-                is_hit = True
-                t_closest = t
-                st = st1 * (1 - b1 - b2) + st2 * b1 + st3 * b2
-                diffuse_color = self.eval_diffuse_color(st.x, st.y)
+                e1 = e1.normalized()
+                e2 = e2.normalized()
+                outward_normal = tm.cross(e1, e2)
+                rec.set_face_normal(ray, outward_normal)
 
-        return is_hit, t_closest, N, diffuse_color
-
-    def eval_diffuse_color(self, u: float, v: float):
-        pattern = (tm.mod(u * self.color_scale, 1) > 0.5) ^ (tm.mod(v * self.color_scale, 1) > 0.5)
-        return lerp(self.color1, self.color2, pattern)
+                st = st1 * b3 + st2 * b1 + st3 * b2
+                diffuse_color = self.eval_diffuse_color(st)
+                rec.mat.diffuse_color = diffuse_color
+        return rec

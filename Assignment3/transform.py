@@ -30,7 +30,7 @@ def get_viewport_matrix(width: float, height: float) -> mat4:
 
 # 相机变换（camera/view）
 def get_view_matrix(eye_pos, look_at, eye_up) -> mat4:
-    w = -normalize(look_at)
+    w = -normalize(eye_pos - look_at)
     u = normalize(np.cross(eye_up, w))
     v = np.cross(w, u)
     view = mat4(vec4(u, 0), vec4(v, 0), vec4(w, 0), vec4(0, 0, 0, 1))

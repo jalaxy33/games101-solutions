@@ -1,74 +1,68 @@
-# Assignment 5. Whitted-style Raytracer
+# Assignment 5. Whitted-style RayTracer
 # Reference:
-#   https://github.com/erizmr/taichi_ray_tracing/blob/master/3_2_whitted_style_ray_tracing.py
-#   https://github.com/Jiay1C/path_tracing_obj/blob/master/path_tracing_obj.py
-#   https://shao.fun/blog/w/taichi-ray-tracing.html
+#   https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
-import os
-
-os.chdir(os.path.dirname(__file__))
 
 import taichi as ti
 import taichi.math as tm
 
 from models import *
+from renderer import *
 
 ti.init(arch=ti.gpu)
 
 
-# Args
+# Variables
 WIDTH = 1280
 HEIGHT = 960
 background_color = (0.235294, 0.67451, 0.843137)
-
-# Global variables
-FrameBuffer = ti.Vector.field(3, dtype=ti.f32, shape=(WIDTH, HEIGHT))
-
-
-@ti.data_oriented
-class Scene:
-    def __init__(self):
-        self.models = []
-        self.lights = []
-        self.epsilon = 1e-5
-
-    def add_model(self, model):
-        self.models.append(model)
-
-    def clear_models(self):
-        self.models.clear()
-
-    def add_light(self, light):
-        self.lights.append(light)
-
-    def clear_lights(self):
-        self.lights.clear()
+MAX_DEPTH = 10
+MAX_STACK_SIZE = 50
 
 
-scene = Scene()
+renderer = Renderer(
+    WIDTH,
+    HEIGHT,
+    background_color=background_color,
+    max_depth=MAX_DEPTH,
+    max_stack_size=MAX_STACK_SIZE,
+)
 
 
 def init_scene():
-    sph1 = Sphere(center=(-1, 0, -12), radius=2)
+    sph1 = Sphere((-1, 0, -12), 2)
     sph1.set_material(m_type=DIFFUSE_AND_GLOSSY, diffuse_color=(0.6, 0.7, 0.8))
 
-    sph2 = Sphere(center=(0.5, -0.5, -8), radius=1.5)
-    sph2.set_material(m_type=REFLECTION_AND_REFRACTION, refrac_idx=1.5)
+    sph2 = Sphere((0.5, -0.5, -8), 1.5)
+    sph2.set_material(m_type=REFLECTION_AND_REFRACTION, ior=1.5)
 
-    scene.add_model(sph1)
-    scene.add_model(sph2)
+    mesh = MeshTriangle(
+        vertices=[[-5, -3, -6], [5, -3, -6], [5, -3, -16], [-5, -3, -16]],
+        indices=[[0, 1, 3], [1, 2, 3]],
+        st_coords=[[0, 0], [1, 0], [1, 1], [0, 1]],
+    )
+    mesh.set_material(m_type=DIFFUSE_AND_GLOSSY)
+
+    renderer.world.add(sph1)
+    renderer.world.add(sph2)
+    renderer.world.add(mesh)
+
+    renderer.lights.add_ambient_light(10)
+    renderer.lights.add_point_light((-20, 70, 20), 0.5)
+    renderer.lights.add_point_light((30, 50, -12), 0.5)
 
 
 if __name__ == "__main__":
     init_scene()
 
-    window = ti.ui.Window("Whitted-style Raytracer", (WIDTH, HEIGHT))
+    window = ti.ui.Window("Whitted-Style Raytracer", (WIDTH, HEIGHT))
     canvas = window.get_canvas()
-    FrameBuffer.fill(background_color)
+
+    renderer.render()
 
     while window.running:
-        if window.is_pressed(ti.ui.ESCAPE):  # Press <ESC> to exit
+        if window.is_pressed(ti.ui.ESCAPE):
             break
 
-        canvas.set_image(FrameBuffer)
+        canvas.set_image(renderer.frame_buf)
         window.show()
