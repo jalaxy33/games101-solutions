@@ -1,3 +1,4 @@
 taichi
 trimesh
+scikit-image
 vispy

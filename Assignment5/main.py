@@ -1,6 +1,4 @@
 # Assignment 5. Whitted-style RayTracer
-# Reference:
-#   https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
 
 import taichi as ti
