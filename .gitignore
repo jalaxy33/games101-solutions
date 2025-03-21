@@ -1,5 +1,7 @@
 **/imgui.ini
 **/__pycache__
+**/temp
+**/third-party
 .vscode
 
 Assignment7
