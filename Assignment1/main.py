@@ -96,9 +96,7 @@ def get_model_matrix(rotation_angle: float, rotate_axis: str = "z") -> mat4:
 
 
 # 正交变换
-def get_orthographic_matrix(
-    eye_fov: float, aspect_ratio: float, zNear: float, zFar: float
-) -> mat4:
+def get_orthographic_matrix(eye_fov: float, aspect_ratio: float, zNear: float, zFar: float) -> mat4:
     # display area
     # near-far
     n = -zNear
@@ -132,9 +130,7 @@ def get_orthographic_matrix(
 
 
 # 投影变换
-def get_projection_matrix(
-    eye_fov: float, aspect_ratio: float, zNear: float, zFar: float
-) -> mat4:
+def get_projection_matrix(eye_fov: float, aspect_ratio: float, zNear: float, zFar: float) -> mat4:
     # TODO: Implement this function
     # Create the projection matrix for the given parameters.
     # Then return it.

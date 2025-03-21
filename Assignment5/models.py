@@ -155,9 +155,7 @@ class MeshTriangle(Hittable):
 
     @ti.func
     def eval_diffuse_color(self, st: tm.vec2):
-        pattern = (tm.mod(st.x * self.diffuse_scale, 1) > 0.5) ^ (
-            tm.mod(st.y * self.diffuse_scale, 1) > 0.5
-        )
+        pattern = (tm.mod(st.x * self.diffuse_scale, 1) > 0.5) ^ (tm.mod(st.y * self.diffuse_scale, 1) > 0.5)
         return self.lerp(self.diffuse_color1, self.diffuse_color2, pattern)
 
     @ti.func

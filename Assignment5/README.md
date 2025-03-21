@@ -10,7 +10,7 @@
 - [Taichi: 从零开始的光线追踪](https://shao.fun/blog/w/taichi-ray-tracing.html)
 - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 
-**题解**：[main.py](./_main.py)
+**题解**：[main.py](./main.py)
 
 
 Moller-Trumbore 三角形快速求交算法：

@@ -56,9 +56,7 @@ class Bezier:
     def setRandomBasePointPos(self):
         for i in range(0, self.basePosNum):
             # self.basePoint_pos[i] = ti.Vector([ti.sqrt(ti.random()) * 0.9, ti.sqrt(ti.random()) * 0.75])
-            self.basePoint_pos[i] = ti.Vector(
-                [ti.sqrt(np.random.random()) * 0.9, ti.sqrt(np.random.random()) * 0.75]
-            )
+            self.basePoint_pos[i] = ti.Vector([ti.sqrt(np.random.random()) * 0.9, ti.sqrt(np.random.random()) * 0.75])
 
         self.sortBasePoint()
 

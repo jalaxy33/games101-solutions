@@ -72,9 +72,7 @@ class Triangle:
 
 @ti.data_oriented
 class Rasterizer:
-    def __init__(
-        self, width: float, height: float, background_color=(0, 0, 0), MSAA: bool = False, MSAA_N: int = 2
-    ):
+    def __init__(self, width: float, height: float, background_color=(0, 0, 0), MSAA: bool = False, MSAA_N: int = 2):
         self.W = int(width)
         self.H = int(height)
         self.resolution = (self.W, self.H)
@@ -241,7 +239,7 @@ class Rasterizer:
 
             if self.depth_buf[x, y] < depth:
                 self.depth_buf[x, y] = depth
-                
+
                 color /= self.MSAA_N * self.MSAA_N
                 self.set_pixel(x, y, color)
 

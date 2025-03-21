@@ -1,5 +1,9 @@
 # Assignment 5. Whitted-style RayTracer
 
+import os
+
+os.chdir(os.path.dirname(__file__))
+
 
 import taichi as ti
 import taichi.math as tm

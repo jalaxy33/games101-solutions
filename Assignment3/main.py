@@ -11,6 +11,7 @@ import taichi as ti
 import taichi.math as tm
 import trimesh
 import skimage
+import open3d as o3d
 
 # local packages
 from transform import *
@@ -213,9 +214,7 @@ class Rasterizer:
 
         self.model[None] = get_model_matrix(self.data_angles, self.data_scales, self.data_translates)
         self.view[None] = get_view_matrix(camera.pos, camera.look_at, camera.up)
-        self.projection[None] = get_projection_matrix(
-            camera.fov, self.aspect_ratio, camera.zNear, camera.zFar
-        )
+        self.projection[None] = get_projection_matrix(camera.fov, self.aspect_ratio, camera.zNear, camera.zFar)
         self.viewport[None] = get_viewport_matrix(self.W, self.H)
 
         self.update_matrices()
@@ -491,9 +490,7 @@ class Rasterizer:
                     viewspace_pos = (alpha * vp1 + beta * vp2 + gamma * vp3).xyz
                     texture_uv = (alpha * uv1 + beta * uv2 + gamma * uv3).xy
 
-                    payload = FragmentShaderPayload(
-                        x, y, color, tm.normalize(normal), viewspace_pos, texture_uv
-                    )
+                    payload = FragmentShaderPayload(x, y, color, tm.normalize(normal), viewspace_pos, texture_uv)
                     pixel_color = self.fragment_shader(payload)
                     self.set_pixel(x, y, pixel_color)
 
@@ -794,9 +791,9 @@ if __name__ == "__main__":
         # 空格重置
         if window.is_pressed(ti.ui.SPACE):
             # 使用默认着色器
-            rasterizer.frag_shader_option[None] = 0 
-            # 重置角度 
-            curr_angles = copy.deepcopy(data_angles)  
+            rasterizer.frag_shader_option[None] = 0
+            # 重置角度
+            curr_angles = copy.deepcopy(data_angles)
             rasterizer.model[None] = get_model_matrix(curr_angles, data_scales, data_translates)
             rasterizer.update_matrices()
             change_flag = True
