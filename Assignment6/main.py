@@ -9,10 +9,11 @@ import taichi as ti
 import taichi.math as tm
 from vispy.io import read_mesh
 
-from common import *
-from model import *
-from scene import *
-from renderer import *
+from Mesh import TriMesh
+from Scene import Scene
+from Renderer import Renderer
+from Material import *
+from BVH import SplitMethod
 
 ti.init(arch=ti.gpu)
 
@@ -43,7 +44,7 @@ def init_bunny_scene():
     vertices, indices, normals, texcoords = read_mesh(bunny_obj)
     vertices = vertices * 60.0
 
-    bunny = BVHMesh(vertices, indices, normals)
+    bunny = TriMesh(vertices, indices, brute_force=False)
     bunny.set_material(m_type=DIFFUSE_AND_GLOSSY, m_color=(0.5, 0.5, 0.5), kd=0.6, ks=0, spec_exp=0)
     bunny.build_bvh(split_method=SplitMethod.SAH)
 
@@ -61,11 +62,12 @@ def init_bunny_scene():
 if __name__ == "__main__":
     init_bunny_scene()
 
-    window = ti.ui.Window("BVH + Whitted-style raytracing", (WIDTH, HEIGHT))
+    window = ti.ui.Window("BVH RayTracing", (WIDTH, HEIGHT))
     canvas = window.get_canvas()
 
     renderer.render()
 
     while window.running and not window.is_pressed(ti.ui.ESCAPE):
+
         canvas.set_image(renderer.frame_buf)
         window.show()

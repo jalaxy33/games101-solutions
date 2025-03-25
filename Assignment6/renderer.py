@@ -1,40 +1,39 @@
 import taichi as ti
 import taichi.math as tm
+import numpy as np
 
-from common import *
-from scene import *
+from Scene import Scene
+from Material import *
+
+Inf = float("inf")
+Vec3 = ti.types.vector(3, dtype=ti.f32)
+Color = ti.types.vector(3, float)
 
 
 # Define task types
 TASK_PROCESS = 0  # Process a material
 TASK_MERGE = 1  # Merge results from REFLECT_AND_REFRACT
 
-Color = ti.types.vector(3, float)
+
+@ti.pyfunc
+def clamp(x, x_min, x_max):
+    return max(x_min, min(x_max, x))
 
 
-@ti.func
-def rand3():
-    return ti.Vector([ti.random(), ti.random(), ti.random()])
-
-
-@ti.func
-def random_in_unit_sphere():
-    p = 2.0 * rand3() - ti.Vector([1, 1, 1])
-    while p.norm() >= 1.0:
-        p = 2.0 * rand3() - ti.Vector([1, 1, 1])
-    return p
-
-
-@ti.func
-def random_unit_vector():
-    return random_in_unit_sphere().normalized()
+@ti.pyfunc
+def reflectance(cosine, ref_idx):
+    # Use Schlick's approximation for reflectance.
+    r0 = (1 - ref_idx) / (1 + ref_idx)
+    r0 = r0 * r0
+    return r0 + (1 - r0) * pow((1 - cosine), 5)
 
 
 @ti.dataclass
 class StatusFrame:
     task_type: ti.i32
     depth: ti.i32
-    ray: Ray3
+    ray_origin: Vec3
+    ray_direct: Vec3
     kr: ti.f32
 
 
@@ -124,14 +123,6 @@ class ResultStack:
         return succeed
 
 
-@ti.func
-def reflectance(cosine, ref_idx):
-    # Use Schlick's approximation for reflectance.
-    r0 = (1 - ref_idx) / (1 + ref_idx)
-    r0 = r0 * r0
-    return r0 + (1 - r0) * pow((1 - cosine), 5)
-
-
 @ti.data_oriented
 class Renderer:
     def __init__(
@@ -143,18 +134,16 @@ class Renderer:
         max_stack_size=50,
         vfov=90,
         eye_pos=(0, 0, 0),
-        reflect_fuzz=0.1,
     ):
         self.W = width
         self.H = height
-        self.frame_buf = ti.Vector.field(3, ti.f32, shape=(width, height))
         self.background_color = Vec3(background_color)
         self.max_depth = max_depth
         self.max_stack_size = max_stack_size
         self.vfov = vfov
         self.eye_pos = Vec3(eye_pos)
-        self.reflect_fuzz = reflect_fuzz
 
+        self.frame_buf = ti.Vector.field(3, ti.f32, shape=(width, height))
         self.status_stack = StatusStack(width, height, max_stack_size)
         self.result_stack = ResultStack(width, height, max_stack_size)
 
@@ -163,35 +152,37 @@ class Renderer:
         self.world = scene.world
 
     @ti.func
-    def bling_phong(self, ray: Ray3, rec: HitRecord) -> Vec3:
-        eps = 1e-5
-        shadow_orig = rec.pos + rec.N * eps if tm.dot(ray.direct, rec.N) < 0 else rec.pos - rec.N * eps
+    def bling_phong(self, ray_direction, hit_pos, hit_norm, hit_mat: Material) -> Vec3:
+        ray_direction = ray_direction.normalized()
+        hit_norm = hit_norm.normalized()
 
-        color = Vec3(0)
-        ambient_color = Vec3(0)
-        diffuse_color = Vec3(0)
-        specular_color = Vec3(0)
+        eps = 1e-5
+        shadow_origin = hit_pos + hit_norm * eps if ray_direction.dot(hit_norm) < 0 else hit_pos - hit_norm * eps
+
+        ambient = Vec3(0)
+        diffuse = Vec3(0)
+        specular = Vec3(0)
         for i in ti.static(range(len(self.lights.point_lights))):
             light = self.lights.point_lights[i]
 
-            r = tm.distance(light.pos, rec.pos)  # 光源-点距离
-            light_dir = (light.pos - rec.pos).normalized()  # 光源-点方向
+            r = tm.distance(light.pos, hit_pos)  # 光源-点距离
+            light_dir = (light.pos - hit_pos).normalized()  # 光源-点方向
 
-            shadow_rec = self.world.hit(Ray3(shadow_orig, light_dir), Inf)
-            in_shadow = shadow_rec.is_hit and shadow_rec.t < r
+            in_shadow, _t, _pos, _norm, _mat = self.world.hit(shadow_origin, light_dir, t_near=r)
 
             # ambient
-            ambient_color = rec.mat.ka * self.lights.ambient_light.Ia
+            ambient += hit_mat.ka * self.lights.ambient_light.Ia
 
             # diffuse
-            diffuse_color += Vec3(0) if in_shadow else max(0, tm.dot(light_dir, rec.N))
+            diffuse += Vec3(0) if in_shadow else Vec3(max(0, light_dir.dot(hit_norm)))
 
             # specular
-            reflect_dir = tm.reflect(-light_dir, rec.N).normalized()
-            specular_color += light.I * tm.pow(tm.max(0, -tm.dot(reflect_dir, light_dir)), rec.mat.spec_exp)
+            reflect_dir = tm.reflect(-light_dir, hit_norm).normalized()
+            specular += light.I * tm.pow(max(0, -reflect_dir.dot(light_dir)), hit_mat.spec_exp)
 
-        color = ambient_color + rec.mat.kd * rec.mat.m_color * diffuse_color + rec.mat.ks * specular_color
-
+        diffuse *= hit_mat.kd * hit_mat.m_color
+        specular *= hit_mat.ks
+        color = ambient + diffuse + specular
         return color
 
     @ti.kernel
@@ -206,32 +197,25 @@ class Renderer:
             # Also, don't forget to multiply both of them with the variable *scale*, and
             # x (horizontal) variable with the *imageAspectRatio*
 
-            x = ((i + ti.random()) / self.W - 0.5) * 2 * half_width
-            y = ((j + ti.random()) / self.H - 0.5) * 2 * half_height
+            x = (i / self.W - 0.5) * 2 * half_width
+            y = (j / self.H - 0.5) * 2 * half_height
 
-            ray_direction = Vec3(x, y, -1).normalized()
-            ray = Ray3(self.eye_pos, ray_direction)
+            ray_origin = self.eye_pos
+            ray_direct = Vec3(x, y, -1).normalized()
 
-            pixel_color = self.ray_color(i, j, ray)
-
+            pixel_color = self.ray_color(i, j, ray_origin, ray_direct)
             self.frame_buf[i, j] = pixel_color
 
     # Whitted-style RayTracer
     @ti.func
-    def ray_color(self, i, j, ray: Ray3):
+    def ray_color(self, i, j, origin, direction):
         pixel_color = Vec3(0)
         eps = 1e-5
-
-        # rec = self.world.hit(ray, Inf)
-        # if rec.is_hit:
-        #     pixel_color = Color(1, 0, 0)
-        # else:
-        #     pixel_color = self.background_color
 
         self.status_stack.clear(i, j)
         self.result_stack.clear(i, j)
 
-        frame = StatusFrame(task_type=TASK_PROCESS, depth=0, ray=ray, kr=1.0)
+        frame = StatusFrame(task_type=TASK_PROCESS, depth=0, ray_origin=origin, ray_direct=direction, kr=1.0)
         self.status_stack.push(i, j, frame)
         while not self.status_stack.empty(i, j):
             frame = self.status_stack.top(i, j)
@@ -242,28 +226,27 @@ class Renderer:
                     self.result_stack.push(i, j, Color(0, 0, 0))
                     continue
 
-                rec = self.world.hit(frame.ray, Inf)
-                rd = frame.ray.direct.normalized()
-                m_type = rec.mat.m_type
+                is_hit, hit_t, hit_pos, hit_norm, hit_mat = self.world.hit(origin, direction)
+
+                rd = frame.ray_direct.normalized()
+                m_type = hit_mat.m_type
                 depth = frame.depth
 
-                if rec.is_hit:
+                if is_hit:
                     if m_type == REFLECTION_AND_REFRACTION or m_type == REFLECTION:
-                        ref_idx = rec.mat.ior
-                        if rec.front_face:
+                        ref_idx = hit_mat.ior
+                        cos_theta = clamp(-rd.dot(hit_norm), -1.0, 1.0)
+
+                        front_face = cos_theta > 0
+                        if front_face:
                             ref_idx = 1.0 / ref_idx
 
-                        cos_theta = max(min(-rd.dot(rec.N), 1.0), -1.0)
                         kr = reflectance(cos_theta, ref_idx)
 
-                        reflect_dir = tm.reflect(rd, rec.N).normalized()
-                        reflect_dir += self.reflect_fuzz * random_unit_vector()
-
-                        reflect_orig = rec.pos
-                        if reflect_dir.dot(rec.N) > 0:
-                            reflect_orig += rec.N * eps
-                        else:
-                            reflect_orig += rec.N * eps
+                        reflect_direct = tm.reflect(rd, hit_norm).normalized()
+                        reflect_origin = (
+                            hit_pos + hit_norm * eps if reflect_direct.dot(hit_norm) > 0 else hit_pos - hit_norm * eps
+                        )
 
                         merge_frame = StatusFrame(task_type=TASK_MERGE, depth=depth + 1, kr=kr)
                         self.status_stack.push(i, j, merge_frame)
@@ -271,33 +254,35 @@ class Renderer:
                         reflect_frame = StatusFrame(
                             task_type=TASK_PROCESS,
                             depth=depth + 1,
-                            ray=Ray3(reflect_orig, reflect_dir),
+                            ray_origin=reflect_origin,
+                            ray_direct=reflect_direct,
                         )
                         self.status_stack.push(i, j, reflect_frame)
 
                         if m_type == REFLECTION_AND_REFRACTION:
-                            refract_dir = tm.refract(rd, rec.N, ref_idx).normalized()
-                            refract_orig = rec.pos
-                            if refract_dir.dot(rec.N) > 0:
-                                refract_orig += rec.N * eps
-                            else:
-                                refract_orig -= rec.N * eps
+                            refract_direct = tm.refract(rd, hit_norm, ref_idx).normalized()
+                            refract_origin = (
+                                hit_pos + hit_norm * eps
+                                if refract_direct.dot(hit_norm) > 0
+                                else hit_pos - hit_norm * eps
+                            )
 
                             refract_frame = StatusFrame(
                                 task_type=TASK_PROCESS,
                                 depth=depth + 1,
-                                ray=Ray3(refract_orig, refract_dir),
+                                ray_origin=refract_origin,
+                                ray_direct=refract_direct,
                             )
                             self.status_stack.push(i, j, refract_frame)
                         else:  # m_type == REFLECTION
-                            self.result_stack.push(i, j, Color(self.background_color * 0.99))
+                            self.result_stack.push(i, j, Color(self.background_color))
 
                     else:
                         # [comment]
                         # We use the Phong illumation model int the default case. The phong model
                         # is composed of a diffuse and a specular reflection component.
                         # [/comment]
-                        color = self.bling_phong(frame.ray, rec)
+                        color = self.bling_phong(direction, hit_pos, hit_norm, hit_mat)
                         self.result_stack.push(i, j, color)
                 else:
                     break

@@ -13,14 +13,14 @@
     - [mmoon/taichi-rt](https://gitee.com/mmoon/taichi-rt/blob/master/ti_rt/utils/model.py)
     - [lyd405121/ti-raytrace](https://github.com/lyd405121/ti-raytrace/blob/main/accel/SahBvh.py)
     - [bsavery/ray-tracing-one-weekend-taichi](https://github.com/bsavery/ray-tracing-one-weekend-taichi/blob/main/bvh.py)
+    - [lyd405121/ti-bvh](https://github.com/lyd405121/ti-bvh)
 
 
 **题解**：[main.py](./main.py)
 
 
-目前的实现三角形检测仍有问题，暂时未找到原因：
 
-![](./imgs/BVH%20Bunny.png)
+![](./imgs/BVH%20RayTracing.png)
 
 
 

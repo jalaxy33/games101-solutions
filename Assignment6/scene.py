@@ -1,7 +1,10 @@
 import taichi as ti
 import taichi.math as tm
 
-from common import *
+from Material import *
+
+Inf = float("inf")
+Vec3 = ti.types.vector(3, dtype=ti.f32)
 
 
 @ti.dataclass
@@ -39,18 +42,26 @@ class HittableList:
     def add(self, obj):
         self.objs.append(obj)
 
-    @ti.func
-    def hit(self, ray: Ray3, tmin=Inf) -> HitRecord:
-        rec = HitRecord()
-        closest_so_far = tmin
+    @ti.pyfunc
+    def hit(self, origin, direction, t_near=Inf):
+        direction = direction.normalized()
+
+        is_hit = False
+        closest_t = t_near
+        hit_pos = ti.Vector([Inf, Inf, Inf], ti.f32)
+        hit_norm = ti.Vector([0, 0, 0], ti.f32)
+        hit_mat = Material()
 
         for i in ti.static(range(len(self.objs))):
-            temp_rec = self.objs[i].hit(ray, closest_so_far)
-            if temp_rec.is_hit and temp_rec.t < closest_so_far:
-                closest_so_far = temp_rec.t
-                rec = temp_rec
+            _hit, _t, _pos, _n, _mat = self.objs[i].hit(origin, direction, t_near)
+            if _hit and _t < closest_t:
+                is_hit = _hit
+                closest_t = _t
+                hit_pos = _pos
+                hit_norm = _n
+                hit_mat = _mat
 
-        return rec
+        return is_hit, closest_t, hit_pos, hit_norm, hit_mat
 
 
 @ti.data_oriented
