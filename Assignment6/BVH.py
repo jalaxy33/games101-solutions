@@ -16,6 +16,7 @@ Mat3x3 = ti.types.matrix(3, 3, dtype=ti.f32)
 class SplitMethod(Enum):
     MIDDLE = 0
     SAH = 1
+    LBVH = 2
 
 
 @dataclass(slots=True)
@@ -32,6 +33,7 @@ class BVHNode:
 class BVHTree:
     def __init__(self, primitives_np, split_method=SplitMethod.SAH):
         self.primitives = np.array(primitives_np, dtype=np.float32)  # (count, 3, 3)
+        
         self.order = np.arange(len(self.primitives))
         self.nodes: list[BVHNode] = []
         self.split_method = split_method

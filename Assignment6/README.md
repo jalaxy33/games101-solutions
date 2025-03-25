@@ -1,4 +1,4 @@
-# 作业 6. 加速结构
+# 作业 6. BVH 加速结构
 
 在之前实现的 Whitted-style Raytracer 的基础上，实现 BVH 加速结构以及 SAH 结构划分优化方法。
 

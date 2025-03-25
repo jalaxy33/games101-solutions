@@ -51,6 +51,7 @@ class TriMesh:
         t1 = time()
         print(f"Built BVH tree for {self.primitive_count} primitives in {t1 - t0:.3f} s")
 
+        # reorder indices
         self.indices_np = self.indices_np[self.bvh.order]
         self.indices.from_numpy(self.indices_np)
 

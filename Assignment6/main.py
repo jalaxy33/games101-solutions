@@ -44,7 +44,7 @@ def init_bunny_scene():
     vertices, indices, normals, texcoords = read_mesh(bunny_obj)
     vertices = vertices * 60.0
 
-    bunny = TriMesh(vertices, indices, brute_force=False)
+    bunny = TriMesh(vertices, indices, brute_force=False)  # brute_force for debugging
     bunny.set_material(m_type=DIFFUSE_AND_GLOSSY, m_color=(0.5, 0.5, 0.5), kd=0.6, ks=0, spec_exp=0)
     bunny.build_bvh(split_method=SplitMethod.SAH)
 
