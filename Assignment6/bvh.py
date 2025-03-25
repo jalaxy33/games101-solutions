@@ -1,3 +1,6 @@
+# Reference:
+#   https://gitee.com/mmoon/taichi-rt/blob/master/ti_rt/utils/model.py
+
 import taichi as ti
 import taichi.math as tm
 import numpy as np
