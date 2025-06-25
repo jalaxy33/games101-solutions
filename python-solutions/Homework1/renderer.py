@@ -94,9 +94,9 @@ class Renderer:
             v2 /= v2.w
             v3 /= v3.w
 
-            # self.set_pixel(v1.x, v1.y)
-            # self.set_pixel(v2.x, v2.y)
-            # self.set_pixel(v2.x, v2.y)
+            # self.set_pixel(v1.x, v1.y, self.line_color)
+            # self.set_pixel(v2.x, v2.y, self.line_color)
+            # self.set_pixel(v2.x, v2.y, self.line_color)
 
             self.draw_triangle_wireframe(v1, v2, v3)
 
@@ -104,16 +104,19 @@ class Renderer:
     def draw_triangle_wireframe(
         self, v1: ti.template(), v2: ti.template(), v3: ti.template()
     ):
-        self.draw_line(v1.x, v1.y, v2.x, v2.y)
-        self.draw_line(v2.x, v2.y, v3.x, v3.y)
-        self.draw_line(v3.x, v3.y, v1.x, v1.y)
+        self.draw_line(v1, v2)
+        self.draw_line(v2, v3)
+        self.draw_line(v3, v1)
 
     @ti.func
-    def draw_line(self, x1: int, y1: int, x2: int, y2: int):
+    def draw_line(self, p1: ti.template(), p2: ti.template()):
         """
         Bresenham's line drawing algorithm.\n
         reference: https://github.com/miloyip/line/blob/master/line_bresenham.c
         """
+        x1, y1 = int(p1.x), int(p1.y)
+        x2, y2 = int(p2.x), int(p2.y)
+
         dx, dy = abs(x2 - x1), abs(y2 - y1)
         sx = int(ti.math.sign(x2 - x1 + 1e-12))  # sx = 1 if x0 < x1 else -1
         sy = int(ti.math.sign(y2 - y1 + 1e-12))  # sy = 1 if y0 < y1 else -1
