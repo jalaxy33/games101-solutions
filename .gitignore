@@ -1,9 +1,10 @@
+.vscode
+.venv
+
 **/imgui.ini
 **/__pycache__
-**/temp
-**/third-party
-.vscode
 
-Assignment7
-Assignment8
+.python-version
+uv.lock
+
 
