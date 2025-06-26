@@ -25,7 +25,10 @@ class Key(Enum):
     CLOSE = -1
 
 
-def rotate_along_z(renderer: Renderer, angle: float):
+#  TODO: Implement this function
+#  Create the model matrix for rotating the triangle around the Z axis.
+#  Then return it.
+def rotate_around_z(renderer: Renderer, angle: float):
     """
     rotate along z axis
     """
@@ -54,7 +57,7 @@ if __name__ == "__main__":
         width=1024, height=1024, line_color=(1, 1, 1), background_color=(0, 0, 0)
     )
     renderer.set_camera(camera)
-    renderer.set_triangles(vertices, indices)
+    renderer.set_mesh(vertices, indices)
 
     renderer.render()
     frame_array = renderer.get_frame_array(cv2=True)
@@ -73,15 +76,15 @@ if __name__ == "__main__":
                 break
             case Key.A.value:
                 angle = (angle + rotate_delta) % 360
-                rotate_along_z(renderer, angle)
+                rotate_around_z(renderer, angle)
                 rerender_flag = True
             case Key.D.value:
                 angle = (angle - rotate_delta) % 360
-                rotate_along_z(renderer, angle)
+                rotate_around_z(renderer, angle)
                 rerender_flag = True
             case Key.SPACE.value:
                 angle = 0
-                rotate_along_z(renderer, angle)
+                rotate_around_z(renderer, angle)
                 rerender_flag = True
 
         if rerender_flag:

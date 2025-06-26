@@ -10,13 +10,17 @@
 **题解**：[main.py](./main.py)
 
 无 Anti-aliasing：
-![](./imgs/two-triangles(no-AA).png)
+![](./imgs/no-MSAA.png)
 
 
 MSAA-2:
-![](./imgs/two-triangles(MSAA-2).png)
+![](./imgs/MSAA-2.png)
 
 
 MSAA-4:
-![](./imgs/two-triangles(MSAA-4).png)
+![](./imgs/MSAA-4.png)
+
+
+MSAA-8:
+![](./imgs/MSAA-8.png)
 

@@ -51,9 +51,6 @@ def get_view_transform(eye_pos: NpArr, look_at: NpArr, vup: NpArr) -> NpArr:
     return view
 
 
-#  TODO: Implement this function
-#  Create the model matrix for rotating the triangle around the Z axis.
-#  Then return it.
 def get_model_transform(
     angles=(0, 0, 0),
     scales=(1, 1, 1),

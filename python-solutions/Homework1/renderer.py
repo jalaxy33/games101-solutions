@@ -15,8 +15,8 @@ class Renderer:
         self.H = height
         self.aspect_ratio = self.W / self.H
 
-        self.line_color = ti.Vector(line_color, ti.f32)
-        self.background_color = ti.Vector(background_color, ti.f32)
+        self.line_color = ti.Vector(line_color, ti.float32)
+        self.background_color = ti.Vector(background_color, ti.float32)
 
         self.image_buf = ti.Vector.field(3, ti.float32, shape=(self.W, self.H))
 
@@ -61,11 +61,13 @@ class Renderer:
             self.viewport, self.projection, self.view, self.model
         )
 
-    def set_triangles(self, vertices: NpArr, indices: NpArr):
-        self.vertices = vertices
-        self.indices = indices
+    def set_mesh(self, vertices: NpArr, indices: NpArr):
+        self.vertices = vertices.astype(np.float32)
+        self.indices = indices.astype(np.int32)
 
-        self.vertices_4d = np.hstack([vertices, np.ones((len(vertices), 1))])
+        self.vertices_4d = np.hstack(
+            [vertices, np.ones((len(vertices), 1))], dtype=np.float32
+        )
 
         self.verts_gpu = ti.Vector.field(4, ti.float32)
         self.inds_gpu = ti.Vector.field(3, ti.int32)
