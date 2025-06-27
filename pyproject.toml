@@ -5,11 +5,11 @@ description = "My GAMES101 solutions"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "open3d>=0.19.0",
     "opencv-python>=4.11.0.86",
     "pydantic>=2.11.7",
     "taichi>=1.7.3",
 ]
-
 
 
 [[index]]
