@@ -131,7 +131,7 @@ class Renderer:
         for x, y in ti.ndrange((x_min, x_max + 1), (y_min, y_max + 1)):
             p = Vec3(x, y, 1)
             if t.inside(p):
-                z_interp, color_interp = t.interpolate_z_and_color(p)
+                z_interp, color_interp = t.interpolate_attributes(p)
 
                 if self.depth_buf[x, y] < z_interp:
                     self.depth_buf[x, y] = z_interp
@@ -156,7 +156,7 @@ class Renderer:
                 p = Vec3(x_cur, y_cur, 1.0)
 
                 if t.inside(p):
-                    z_interp, color_interp = t.interpolate_z_and_color(p)
+                    z_interp, color_interp = t.interpolate_attributes(p)
 
                     color += color_interp
                     if depth < z_interp:

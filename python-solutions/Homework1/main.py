@@ -32,8 +32,7 @@ def rotate_around_z(renderer: Renderer, angle: float):
     """
     rotate along z axis
     """
-    model = transform.get_model_transform(angles=(0, 0, angle))
-    renderer.model = model
+    renderer.model = transform.get_model_transform(angles=(0, 0, angle))
     renderer.update_mvp_transform()
 
 

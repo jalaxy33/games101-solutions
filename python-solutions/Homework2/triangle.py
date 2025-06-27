@@ -47,7 +47,7 @@ class Triangle:
 
 
     @ti.pyfunc
-    def interpolate_z_and_color(self, p:ti.template()):
+    def interpolate_attributes(self, p:ti.template()):
         z1, z2, z3 = self.v1.z, self.v2.z, self.v3.z
         w1, w2, w3 = self.v1.w, self.v2.w, self.v3.w
         c1, c2, c3 = self.c1, self.c2, self.c3
