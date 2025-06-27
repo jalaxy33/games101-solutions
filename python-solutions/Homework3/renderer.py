@@ -84,7 +84,6 @@ class Renderer:
         self.image_buf.fill(self.background_color)
         self.depth_buf.fill(-INF)
 
-
         for i in self.mesh.inds_gpu:
             t = self.mesh.get_gpu_triangle(i)
 
